@@ -1,4 +1,4 @@
-package configuration
+package env
 
 import (
 	"fmt"
@@ -10,36 +10,32 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Env struct {
+type parser struct {
 	keyTemplate    string
 	templateValues []any
 }
 
 const (
-	errParseStringEnvTemplate    = "Env '%s' should be set"
+	errParseStringEnvTemplate    = "parser '%s' should be set"
 	errParseIntegerTemplate      = "Cant parse '%s' with value '%s' as integer"
 	errParseTimeDurationTemplate = "Cant parse '%s' with value '%s' as time duration"
 	errParseStringSliceTemplate  = "Can't split '%s' with separator '%s' to slice of strings"
 	errParseStringMapTemplate    = "Can't split '%s' with separator '%s' by pair separator '%s' as map of strings"
 )
 
-func NewEnv() *Env {
-	return &Env{}
+func Get(keyTemplate string, templateValues ...any) *parser {
+	return &parser{
+		keyTemplate:    keyTemplate,
+		templateValues: templateValues,
+	}
 }
 
-func (e *Env) Get(keyTemplate string, templateValues ...any) *Env {
-	e.keyTemplate = keyTemplate
-	e.templateValues = templateValues
-
-	return e
-}
-
-func (e *Env) AsDuration() (time.Duration, error) {
-	value, err := e.AsString()
+func (p *parser) AsDuration() (time.Duration, error) {
+	value, err := p.AsString()
 	if err == nil {
 		result, err := time.ParseDuration(value)
 		if err != nil {
-			return 0, errors.Errorf(errParseTimeDurationTemplate, e.keyTemplate, value)
+			return 0, errors.Errorf(errParseTimeDurationTemplate, p.keyTemplate, value)
 		}
 
 		return result, nil
@@ -48,8 +44,8 @@ func (e *Env) AsDuration() (time.Duration, error) {
 	return 0, err
 }
 
-func (e *Env) AsStringMapOfStrings(separator string, pairSeparator string) (map[string]string, error) {
-	data, err := e.AsString()
+func (p *parser) AsStringMapOfStrings(pairSeparator string, separator string) (map[string]string, error) {
+	data, err := p.AsString()
 	if err == nil {
 		result := map[string]string{}
 		for _, keyValues := range strings.Split(data, separator) {
@@ -69,15 +65,15 @@ func (e *Env) AsStringMapOfStrings(separator string, pairSeparator string) (map[
 	return nil, err
 }
 
-func (e *Env) AsSliceOfString(separator string) ([]string, error) {
-	values, err := e.AsString()
+func (p *parser) AsSliceOfString(separator string) ([]string, error) {
+	values, err := p.AsString()
 	if err == nil {
 		var result []string
 		for _, value := range strings.Split(values, ",") {
 			result = append(result, strings.Trim(value, "\n\t\r "))
 		}
 
-		if len(result) == 0 {
+		if len(result) == 1 && result[0] == values {
 			return nil, errors.Errorf(errParseStringSliceTemplate, values, separator)
 		}
 
@@ -87,8 +83,8 @@ func (e *Env) AsSliceOfString(separator string) ([]string, error) {
 	return nil, err
 }
 
-func (e *Env) AsIntegerWithDefaultValue(defaultValue int64) int64 {
-	value, err := e.AsInteger()
+func (p *parser) AsIntegerWithDefaultValue(defaultValue int64) int64 {
+	value, err := p.AsInteger()
 	if err != nil {
 		return defaultValue
 	}
@@ -96,8 +92,8 @@ func (e *Env) AsIntegerWithDefaultValue(defaultValue int64) int64 {
 	return value
 }
 
-func (e *Env) AsInteger() (int64, error) {
-	value, err := e.AsString()
+func (p *parser) AsInteger() (int64, error) {
+	value, err := p.AsString()
 	if err == nil {
 		result, err := strconv.Atoi(value)
 		if err != nil {
@@ -110,8 +106,8 @@ func (e *Env) AsInteger() (int64, error) {
 	return 0, err
 }
 
-func (e *Env) AsBoolWithDefault(defaultValue bool) bool {
-	value, _ := e.AsString()
+func (p *parser) AsBoolWithDefault(defaultValue bool) bool {
+	value, _ := p.AsString()
 
 	switch strings.ToLower(value) {
 	case "true":
@@ -123,8 +119,8 @@ func (e *Env) AsBoolWithDefault(defaultValue bool) bool {
 	}
 }
 
-func (e *Env) AsString() (string, error) {
-	envName := fmt.Sprintf(e.keyTemplate, e.templateValues...)
+func (p *parser) AsString() (string, error) {
+	envName := fmt.Sprintf(p.keyTemplate, p.templateValues...)
 	result := os.Getenv(envName)
 	if result != "" {
 		return result, nil
