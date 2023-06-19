@@ -1,4 +1,4 @@
-module env
+module github.com/denis-golikov/env
 
 go 1.20
 

@@ -1,10 +1,10 @@
 package tests
 
 import (
-	"env"
 	"testing"
 	"time"
 
+	"github.com/denis-golikov/env"
 	"github.com/stretchr/testify/assert"
 )
 
